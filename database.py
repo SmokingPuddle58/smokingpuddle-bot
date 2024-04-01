@@ -59,12 +59,14 @@ def init_database():
 
 
 def init_route_list():
-    route_list = get_json("https://data.etabus.gov.hk/v1/transport/kmb/route/")['data']
+    route_list = [get_json("https://data.etabus.gov.hk/v1/transport/kmb/route/")['data'],get_json("https://rt.data.gov.hk/v2/transport/citybus/route/ctb")['data']]
 
-    route_list_tuple = [tuple(d.values()) for d in route_list]
+    for datum in route_list:
 
-    cursor.executemany("""
-        INSERT INTO ROUTE_LIST VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        route_list_tuple = [tuple(d.values()) for d in datum]
+
+    cursor.executemany(f"""
+        INSERT INTO ROUTE_LIST VALUES ({KMB, CTB},?, ?, ?, ?, ?, ?, ?, ?, ?)
     """, route_list_tuple)
 
     connection.commit()

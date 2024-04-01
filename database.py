@@ -103,7 +103,7 @@ def get_route_info(route) -> list:
 
 def get_stop_info(route: str, start: str, end: str, serv_type: str) -> list:
     bound = cursor.execute("""
-        SELECT BOUND FROM ROUTE_LIST WHERE ROUTE = ? AND ORIG_EN = ? AND DEST_EN = ? AND SERV_TYPE = ?
+        SELECT BOUND FROM ROUTE_LIST WHERE ROUTE = ? AND ORIG_TR = ? AND DEST_TR = ? AND SERV_TYPE = ?
     """, (route, start, end, serv_type)).fetchone()[0]
 
     station_list = cursor.execute("""
@@ -122,7 +122,7 @@ def get_route_list() -> list:
 
 def convert_id_to_name(id_: str) -> str:
     name = cursor.execute("""
-        SELECT NAME_EN FROM STOP_LIST WHERE STOP_ID = ?
+        SELECT NAME_TR FROM STOP_LIST WHERE STOP_ID = ?
     """, (id_,)).fetchone()
 
     return name[0]
@@ -130,15 +130,23 @@ def convert_id_to_name(id_: str) -> str:
 
 def get_direction(route: str) -> list:
     return cursor.execute("""
-            SELECT ORIG_EN, DEST_EN FROM ROUTE_LIST WHERE ROUTE = ?
+            SELECT ORIG_TR, DEST_TR FROM ROUTE_LIST WHERE ROUTE = ?
         """, (route,)).fetchall()
 
 
 def get_serv_type(route: str, start: str, end: str):
     list_of_serv = cursor.execute("""
-        SELECT SERV_TYPE FROM ROUTE_LIST WHERE ROUTE=? AND ORIG_EN=? AND DEST_EN=?
+        SELECT SERV_TYPE FROM ROUTE_LIST WHERE ROUTE=? AND ORIG_TR=? AND DEST_TR=?
     """, (route, start, end,)).fetchall()
 
     print(list_of_serv)
 
     return list(chain.from_iterable(list_of_serv))
+
+
+def get_bound(route, start, end, serv_type):
+    bound = cursor.execute("""
+        SELECT BOUND FROM ROUTE_LIST WHERE ROUTE = ? AND ORIG_TR = ? AND DEST_TR = ? AND SERV_TYPE = ?
+    """, (route, start, end, serv_type)).fetchone()[0]
+
+    return bound

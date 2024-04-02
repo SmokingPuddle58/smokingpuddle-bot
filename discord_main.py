@@ -16,7 +16,6 @@ tree = app_commands.CommandTree(client)
 class Page(discord.ui.View):
     # Later can change the input into kwargs
     def __init__(self, *, timeout=90, **kwargs):
-        # queue: list, page=0, route: str, serv_type: str, dest: str, funct: Callable
         kwargs.setdefault('page', 0)
         super().__init__(timeout=timeout)
         self.kwargs = kwargs
@@ -77,7 +76,7 @@ def compose_queue(**kwargs):
         elif kwargs['type'] == 0:
             embed_queue.add_field(name=f"🚌 {num}", value=station_slice[i], inline=False)
 
-    embed_queue.set_footer(text="ffff")
+    embed_queue.set_footer(text=f"Time generated: {kwargs['timestamp']}")
 
     return embed_queue
 
@@ -159,7 +158,7 @@ async def get_stop(interaction, 路線: str, 起點站: str, 終點站: str, 服
     await interaction.response.defer()
 
     await interaction.edit_original_response(
-        embed=compose_queue(page=0, queue=data_list, route=路線, serv_type=服務類型, dest=終點站, type=0),
+        embed=compose_queue(page=0, queue=data_list, route=路線, serv_type=服務類型, dest=終點站, type=0,timestamp=datetime.datetime.now().replace(tzinfo=None).strftime('%H:%M')),
         view=Page(queue=data_list, page=0, dest=終點站, serv_type=服務類型, route=路線, funct=compose_queue))
 
 
@@ -177,7 +176,9 @@ async def get_route_eta(interaction, 路線: str, 起點站: str, 終點站: str
     data = database.get_stop_info(路線, 起點站, 終點站, 服務類型)
     query_url = f"https://data.etabus.gov.hk/v1/transport/kmb/route-eta/{路線}/{服務類型}"
 
-    json_parsed = database.get_json(query_url)['data']
+    json_file = database.get_json(query_url)
+    json_parsed = json_file['data']
+    timestamp_json = datetime.datetime.fromisoformat(json_file['generated_timestamp']).replace(tzinfo=None).strftime('%H:%M')
 
     station_list = []
     for i in range(len(data)):
@@ -218,8 +219,8 @@ async def get_route_eta(interaction, 路線: str, 起點站: str, 終點站: str
     await interaction.response.defer()
 
     await interaction.edit_original_response(
-        embed=compose_queue(page=0, queue=data_list, route=路線, serv_type=服務類型, dest=終點站, type=1),
-        view=Page(queue=data_list, page=0, dest=終點站, serv_type=服務類型, route=路線, type=1,
+        embed=compose_queue(page=0, queue=data_list, route=路線, serv_type=服務類型, dest=終點站, type=1, timestamp=timestamp_json),
+        view=Page(queue=data_list, page=0, dest=終點站, serv_type=服務類型, route=路線, type=1, timestamp=timestamp_json,
                   funct=compose_queue))
 
 

@@ -139,8 +139,6 @@ def get_serv_type(route: str, start: str, end: str):
         SELECT SERV_TYPE FROM ROUTE_LIST WHERE ROUTE=? AND ORIG_TR=? AND DEST_TR=?
     """, (route, start, end,)).fetchall()
 
-    print(list_of_serv)
-
     return list(chain.from_iterable(list_of_serv))
 
 

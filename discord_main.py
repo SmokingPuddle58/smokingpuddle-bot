@@ -1,8 +1,7 @@
 import discord
 from discord import app_commands
-from typing import Callable
 import datetime
-
+from math import trunc
 
 import database
 
@@ -16,35 +15,33 @@ tree = app_commands.CommandTree(client)
 
 class Page(discord.ui.View):
     # Later can change the input into kwargs
-    def __init__(self, *, timeout=180, queue, page=0, route, serv_type, dest, funct: Callable):
+    def __init__(self, *, timeout=90, **kwargs):
+        # queue: list, page=0, route: str, serv_type: str, dest: str, funct: Callable
+        kwargs.setdefault('page', 0)
         super().__init__(timeout=timeout)
-        self.queue = queue
-        self.page = page
-        self.route = route
-        self.serv_type = serv_type
-        self.dest = dest
-        self.funct = funct
+        self.kwargs = kwargs
 
+    # noinspection PyUnresolvedReferences
     @discord.ui.button(label="<", style=discord.ButtonStyle.gray)
-
     async def previous_button(self, interaction: discord.Interaction, button: discord.ui.Button):
-        if self.page <= 0:
+        if self.kwargs['page'] <= 0:
             await interaction.response.edit_message(
-                embed=self.funct(self.page, self.queue, self.route, self.serv_type, self.dest), view=self)
+                embed=self.kwargs["funct"](kwargs=self.kwargs), view=self)
         else:
-            self.page -= 1
+            self.kwargs.update({'page': self.kwargs['page'] - 1})
             await interaction.response.edit_message(
-                embed=self.funct(self.page, self.queue, self.route, self.serv_type, self.dest), view=self)
+                embed=self.kwargs["funct"](kwargs=self.kwargs), view=self)
 
+    # noinspection PyUnresolvedReferences
     @discord.ui.button(label=">", style=discord.ButtonStyle.gray)
     async def next_button(self, interaction: discord.Interaction, button: discord.ui.Button):
-        if self.page >= max_page(self.queue):
+        if self.kwargs['page'] >= max_page(self.kwargs['queue']):
             await interaction.response.edit_message(
-                embed=self.funct(self.page, self.queue, self.route, self.serv_type, self.dest), view=self)
+                embed=self.kwargs["funct"](kwargs=self.kwargs), view=self)
         else:
-            self.page += 1
+            self.kwargs.update({'page': self.kwargs['page'] + 1})
             await interaction.response.edit_message(
-                embed=self.funct(self.page, self.queue, self.route, self.serv_type, self.dest), view=self)
+                embed=self.kwargs["funct"](kwargs=self.kwargs), view=self)
 
 
 def max_page(queue):
@@ -58,22 +55,31 @@ def max_page(queue):
     return idx
 
 
-def compose_queue(page: int, queue: list, route: str, serv: str, dest: str):
+def compose_queue(**kwargs):
     try:
-        station_slice = queue[10 * page: 10 * page + 10]
+        kwargs = kwargs['kwargs']
+    except KeyError:
+        pass
+
+    try:
+        station_slice = kwargs["queue"][10 * kwargs["page"]: 10 * kwargs["page"] + 10]
     except IndexError:
-        station_slice = queue[10 * page: -1]
+        station_slice = kwargs["queue"][10 * kwargs["page"]: -1]
 
-    serv_string = "普通班次" if serv == '1' else "特別班次"
+    serv_string = "普通班次" if kwargs['serv_type'] == '1' else "特別班次"
 
-    embed_queue = discord.Embed(title=f"{route} 往 {dest} {serv_string}")
+    embed_queue = discord.Embed(title=f"{kwargs['route']} 往 {kwargs['dest']} {serv_string}")
 
     for i in range(len(station_slice)):
-        num = 10 * page + i + 1
-        embed_queue.add_field(name=f"🚌 {num}", value=station_slice[i], inline=False)
+        num = 10 * kwargs["page"] + i + 1
+        if kwargs['type'] == 1:
+            embed_queue.add_field(name=f"🚌 {num} {station_slice[i][0]}", value=station_slice[i][1], inline=False)
+        elif kwargs['type'] == 0:
+            embed_queue.add_field(name=f"🚌 {num}", value=station_slice[i], inline=False)
+
+    embed_queue.set_footer(text="ffff")
 
     return embed_queue
-
 
 
 async def route_selection(interaction: discord.Interaction, current: str) -> list[app_commands.Choice[str]]:
@@ -139,7 +145,7 @@ async def end_selection(interaction: discord.Interaction, current: str) -> list[
 @app_commands.autocomplete(終點站=end_selection)
 @app_commands.autocomplete(服務類型=serv_type_selection)
 @tree.command(
-    name="獲得路線的車站",
+    name="路線車站",
     description="獲得查詢路線的所有車站",
     guild=discord.Object(id=1024304086679568475)
 )
@@ -153,32 +159,16 @@ async def get_stop(interaction, 路線: str, 起點站: str, 終點站: str, 服
     await interaction.response.defer()
 
     await interaction.edit_original_response(
-        embed=compose_queue(page=0, queue=data_list, route=路線, serv=服務類型, dest=終點站),
+        embed=compose_queue(page=0, queue=data_list, route=路線, serv_type=服務類型, dest=終點站, type=0),
         view=Page(queue=data_list, page=0, dest=終點站, serv_type=服務類型, route=路線, funct=compose_queue))
 
-
-def compose_queue_for_bus_route_eta(page: int, queue: list, route: str, serv: str, dest: str):
-    try:
-        station_slice = queue[10 * page: 10 * page + 10]
-    except IndexError:
-        station_slice = queue[10 * page: -1]
-
-    serv_string = "普通班次" if serv == '1' else "特別班次"
-
-    embed_queue = discord.Embed(title=f"{route} 往 {dest} {serv_string}")
-
-    for i in range(len(station_slice)):
-        num = 10 * page + i + 1
-        embed_queue.add_field(name=f"🚌 {num} {station_slice[i][0]}", value=station_slice[i][1], inline=False)
-
-    return embed_queue
 
 @app_commands.autocomplete(路線=route_selection)
 @app_commands.autocomplete(起點站=start_selection)
 @app_commands.autocomplete(終點站=end_selection)
 @app_commands.autocomplete(服務類型=serv_type_selection)
 @tree.command(
-    name="所有車站路線預計到達時間",
+    name="路線所有車站預計到達時間",
     description="獲得查詢路線所有車站預計到達時間",
     guild=discord.Object(id=1024304086679568475)
 )
@@ -201,16 +191,36 @@ async def get_route_eta(interaction, 路線: str, 起點站: str, 終點站: str
         eta_info = [item for item in filtered_json if (int(item['seq']) - 1) == i]
         string = ""
 
-        for datum in eta_info:
-            string += f"{datetime.datetime.fromisoformat(datum['eta']).time() if datum['eta'] is not None else '末班車經已開出'}\n註：{datum['rmk_tc']}\n"
+        counter = 0
 
-        data_list.append([station_list[i],string])
+        for datum in eta_info:
+            counter += 1
+            rmk_string = f"註：{datum['rmk_tc']}\n"
+
+            eta_datetime = datetime.datetime.fromisoformat(datum['eta']) if datum['eta'] is not None else None
+
+            if eta_datetime:
+                time_diff = eta_datetime.replace(tzinfo=None) - datetime.datetime.now().replace(tzinfo=None)
+                if time_diff == 0:
+                    rem_time_info = "已抵達"
+                elif time_diff < datetime.timedelta(seconds=0):
+                    rem_time_info = "已開出"
+                else:
+                    rem_time_info = f"{trunc(divmod((time_diff.total_seconds()), 60)[0])} 分鐘"
+                time_string = f"{(eta_datetime.strftime('%H:%M'))} ({rem_time_info})\n"
+            else:
+                time_string = '尚末開出\n'
+
+            string += f"{str(counter) + '.' if eta_datetime else ''} {time_string}{rmk_string}"
+
+        data_list.append([station_list[i], string])
 
     await interaction.response.defer()
 
     await interaction.edit_original_response(
-        embed=compose_queue_for_bus_route_eta(page=0, queue=data_list, route=路線, serv=服務類型, dest=終點站),
-        view=Page(queue=data_list, page=0, dest=終點站, serv_type=服務類型, route=路線, funct=compose_queue_for_bus_route_eta))
+        embed=compose_queue(page=0, queue=data_list, route=路線, serv_type=服務類型, dest=終點站, type=1),
+        view=Page(queue=data_list, page=0, dest=終點站, serv_type=服務類型, route=路線, type=1,
+                  funct=compose_queue))
 
 
 @client.event

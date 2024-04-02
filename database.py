@@ -148,3 +148,11 @@ def get_bound(route, start, end, serv_type):
     """, (route, start, end, serv_type)).fetchone()[0]
 
     return bound
+
+
+def return_stop_based_on_input(stop: str):
+    list_of_stop = cursor.execute(f"""
+            SELECT NAME_TR FROM STOP_LIST WHERE NAME_TR LIKE '%{stop}%'
+        """).fetchall()
+
+    return sorted(list(chain.from_iterable(list_of_stop)))

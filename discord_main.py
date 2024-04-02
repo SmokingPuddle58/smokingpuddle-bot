@@ -90,6 +90,21 @@ async def route_selection(interaction: discord.Interaction, current: str) -> lis
     ]))
 
 
+async def stop_selection(interaction: discord.Interaction, current: str) -> list[app_commands.Choice[str]]:
+    print("I RUN 1")
+
+    stop_list = database.return_stop_based_on_input(current)
+
+    print("I RUN 2")
+
+    print(stop_list)
+
+    return list(set([
+        app_commands.Choice(name=stop, value=stop)
+        for stop in stop_list
+    ]))
+
+
 async def serv_type_selection(interaction: discord.Interaction, current: str) -> list[app_commands.Choice[str]]:
     route = interaction.namespace.路線
     start = interaction.namespace.起點站
@@ -155,11 +170,14 @@ async def get_stop(interaction, 路線: str, 起點站: str, 終點站: str, 服
     for i in range(len(data)):
         data_list.append(database.convert_id_to_name(data[i]))
 
+    timestamp_data = datetime.datetime.now().replace(tzinfo=None).strftime('%H:%M')
+
     await interaction.response.defer()
 
     await interaction.edit_original_response(
-        embed=compose_queue(page=0, queue=data_list, route=路線, serv_type=服務類型, dest=終點站, type=0,timestamp=datetime.datetime.now().replace(tzinfo=None).strftime('%H:%M')),
-        view=Page(queue=data_list, page=0, dest=終點站, serv_type=服務類型, route=路線, funct=compose_queue))
+        embed=compose_queue(page=0, queue=data_list, route=路線, serv_type=服務類型, dest=終點站, type=0,
+                            timestamp=timestamp_data),
+        view=Page(queue=data_list, page=0, dest=終點站, serv_type=服務類型, route=路線, type=0, funct=compose_queue, timestamp=timestamp_data))
 
 
 @app_commands.autocomplete(路線=route_selection)
@@ -178,7 +196,8 @@ async def get_route_eta(interaction, 路線: str, 起點站: str, 終點站: str
 
     json_file = database.get_json(query_url)
     json_parsed = json_file['data']
-    timestamp_json = datetime.datetime.fromisoformat(json_file['generated_timestamp']).replace(tzinfo=None).strftime('%H:%M')
+    timestamp_json = datetime.datetime.fromisoformat(json_file['generated_timestamp']).replace(tzinfo=None).strftime(
+        '%H:%M')
 
     station_list = []
     for i in range(len(data)):
@@ -219,9 +238,21 @@ async def get_route_eta(interaction, 路線: str, 起點站: str, 終點站: str
     await interaction.response.defer()
 
     await interaction.edit_original_response(
-        embed=compose_queue(page=0, queue=data_list, route=路線, serv_type=服務類型, dest=終點站, type=1, timestamp=timestamp_json),
-        view=Page(queue=data_list, page=0, dest=終點站, serv_type=服務類型, route=路線, type=1, timestamp=timestamp_json,
+        embed=compose_queue(page=0, queue=data_list, route=路線, serv_type=服務類型, dest=終點站, type=1,
+                            timestamp=timestamp_json),
+        view=Page(queue=data_list, page=0, dest=終點站, serv_type=服務類型, route=路線, type=1,
+                  timestamp=timestamp_json,
                   funct=compose_queue))
+
+
+@app_commands.autocomplete(車站=stop_selection)
+@tree.command(
+    name="車站各路線預計到達時間",
+    description="獲得查詢車站各路線預計到達時間",
+    guild=discord.Object(id=1024304086679568475)
+)
+async def get_stop_eta(interaction, 車站: str):
+    pass
 
 
 @client.event

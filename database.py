@@ -112,6 +112,7 @@ def get_stop_info(route: str, start: str, end: str, serv_type: str) -> list:
 
     return list(chain.from_iterable(station_list))
 
+
 def get_route_list() -> list:
     route = cursor.execute("""
         SELECT ROUTE FROM ROUTE_LIST
@@ -126,6 +127,18 @@ def convert_id_to_name(id_: str) -> str:
     """, (id_,)).fetchone()
 
     return name[0]
+
+def convert_name_to_id(name: str) -> list:
+    station_ids = cursor.execute(f"""
+        SELECT STOP_ID FROM STOP_LIST WHERE NAME_TR = ?
+    """,(name, )).fetchall()
+
+    if station_ids is None or station_ids == []:
+        station_ids = cursor.execute(f"""
+            SELECT STOP_ID FROM STOP_LIST WHERE NAME_TR LIKE '%{name}%'
+        """).fetchall()
+
+    return list(chain.from_iterable(station_ids))
 
 
 def get_direction(route: str) -> list:
@@ -156,3 +169,22 @@ def return_stop_based_on_input(stop: str):
         """).fetchall()
 
     return sorted(list(chain.from_iterable(list_of_stop)))
+
+
+def return_route_based_on_input(route: str):
+    route = route.upper()
+    list_of_route = cursor.execute(f"""
+        SELECT ROUTE FROM ROUTE_LIST WHERE ROUTE LIKE '{route}%'
+    """).fetchall()
+
+    return sorted(list(chain.from_iterable(list_of_route)))
+
+def return_stops_based_on_route_dest(route:str, dest: str, serv_type: str):
+    bound = cursor.execute(f"""
+        SELECT BOUND FROM ROUTE_LIST WHERE ROUTE = {route} AND DEST_TR = {dest} AND SERV_TYPE={serv_type}
+    """).fetchone()
+    stop_id_list = cursor.execute(f"""
+        SELECT STOP_ID FROM ROUTE_STOP WHERE ROUTE={route} AND BOUND={bound} AND SERV_TYPE={serv_type}
+    """)
+
+    return stop_id_list

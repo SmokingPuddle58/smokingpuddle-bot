@@ -21,7 +21,7 @@ class Page(discord.ui.View):
         self.kwargs = kwargs
 
     # noinspection PyUnresolvedReferences
-    @discord.ui.button(label="<", style=discord.ButtonStyle.gray)
+    @discord.ui.button(label="<", style=discord.ButtonStyle.blurple)
     async def previous_button(self, interaction: discord.Interaction, button: discord.ui.Button):
         if self.kwargs['page'] <= 0:
             await interaction.response.edit_message(
@@ -32,7 +32,7 @@ class Page(discord.ui.View):
                 embed=self.kwargs["funct"](kwargs=self.kwargs), view=self)
 
     # noinspection PyUnresolvedReferences
-    @discord.ui.button(label=">", style=discord.ButtonStyle.gray)
+    @discord.ui.button(label=">", style=discord.ButtonStyle.blurple)
     async def next_button(self, interaction: discord.Interaction, button: discord.ui.Button):
         if self.kwargs['page'] >= max_page(self.kwargs['queue']):
             await interaction.response.edit_message(
@@ -65,9 +65,15 @@ def compose_queue(**kwargs):
     except IndexError:
         station_slice = kwargs["queue"][10 * kwargs["page"]: -1]
 
-    serv_string = "普通班次" if kwargs['serv_type'] == '1' else "特別班次"
+    try:
+        serv_string = "普通班次" if kwargs['serv_type'] == '1' else "特別班次"
+    except KeyError:
+        serv_string = ""
 
-    embed_queue = discord.Embed(title=f"{kwargs['route']} 往 {kwargs['dest']} {serv_string}")
+    try:
+        embed_queue = discord.Embed(title=f"{kwargs['route']} 往 {kwargs['dest']} {serv_string}")
+    except KeyError:
+        embed_queue = discord.Embed(title=f"{kwargs['route']}{serv_string}")
 
     for i in range(len(station_slice)):
         num = 10 * kwargs["page"] + i + 1
@@ -76,28 +82,26 @@ def compose_queue(**kwargs):
         elif kwargs['type'] == 0:
             embed_queue.add_field(name=f"🚌 {num}", value=station_slice[i], inline=False)
 
-    embed_queue.set_footer(text=f"Time generated: {kwargs['timestamp']}")
+    embed_queue.set_footer(text=f"生成時間: {kwargs['timestamp']}")
 
     return embed_queue
 
 
 async def route_selection(interaction: discord.Interaction, current: str) -> list[app_commands.Choice[str]]:
-    route_list = database.get_route_list()
+    route_list = database.return_route_based_on_input(current)
 
     return list(set([
         app_commands.Choice(name=route, value=route)
-        for route in route_list if route.lower().startswith(current.lower())
+        for route in route_list
     ]))
 
 
 async def stop_selection(interaction: discord.Interaction, current: str) -> list[app_commands.Choice[str]]:
-    print("I RUN 1")
+    route = interaction.namespace.路線
+    dest = interaction.namespace.終點站
+    serv_type = interaction.namespace.服務類型
 
-    stop_list = database.return_stop_based_on_input(current)
-
-    print("I RUN 2")
-
-    print(stop_list)
+    stop_list = database.return_stops_based_on_route_dest(route,dest,serv_type)
 
     return list(set([
         app_commands.Choice(name=stop, value=stop)
@@ -112,11 +116,37 @@ async def serv_type_selection(interaction: discord.Interaction, current: str) ->
 
     serv_type = database.get_serv_type(route, start, end)
 
-    return list(set([
-        app_commands.Choice(name=(f"{serv} 正常班次" if serv == '1' else f"{serv} 特別班次"), value=serv)
-        for serv in serv_type
-    ]))
+    type_list = []
 
+    print(serv_type)
+
+    try:
+        default_stop_list = database.get_stop_info(route, start, end, "1")
+    except:
+        default_stop_list = []
+
+    for service in serv_type:
+        if service == "1":
+            print("RUN 1")
+            type_list.append(app_commands.Choice(name=f"{service} 普通班次", value='1'))
+            continue
+
+        print("RUN 2")
+
+        service_stop = database.get_stop_info(route, start, end, service)
+
+        non_stop = [database.convert_id_to_name(item) for item in default_stop_list if item not in service_stop]
+
+        print(non_stop)
+
+        extra_stop = [database.convert_id_to_name(item) for item in service_stop if item not in default_stop_list]
+
+        print(extra_stop)
+
+        type_list.append(app_commands.Choice(name=f"{service} 特別班次 {'停靠' if extra_stop != [] else ''} {extra_stop[0] if extra_stop != [] else ''} {'不停' if non_stop != [] else ''} {non_stop[0] if non_stop != [] else ''}", value=service))
+
+    print(type_list)
+    return type_list
 
 async def start_selection(interaction: discord.Interaction, current: str) -> list[app_commands.Choice[str]]:
     direction_list = database.get_direction(interaction.namespace.路線)
@@ -159,7 +189,7 @@ async def end_selection(interaction: discord.Interaction, current: str) -> list[
 @app_commands.autocomplete(終點站=end_selection)
 @app_commands.autocomplete(服務類型=serv_type_selection)
 @tree.command(
-    name="路線車站",
+    name="路線的車站",
     description="獲得查詢路線的所有車站",
     guild=discord.Object(id=1024304086679568475)
 )
@@ -177,7 +207,8 @@ async def get_stop(interaction, 路線: str, 起點站: str, 終點站: str, 服
     await interaction.edit_original_response(
         embed=compose_queue(page=0, queue=data_list, route=路線, serv_type=服務類型, dest=終點站, type=0,
                             timestamp=timestamp_data),
-        view=Page(queue=data_list, page=0, dest=終點站, serv_type=服務類型, route=路線, type=0, funct=compose_queue, timestamp=timestamp_data))
+        view=Page(queue=data_list, page=0, dest=終點站, serv_type=服務類型, route=路線, type=0, funct=compose_queue,
+                  timestamp=timestamp_data))
 
 
 @app_commands.autocomplete(路線=route_selection)
@@ -185,7 +216,7 @@ async def get_stop(interaction, 路線: str, 起點站: str, 終點站: str, 服
 @app_commands.autocomplete(終點站=end_selection)
 @app_commands.autocomplete(服務類型=serv_type_selection)
 @tree.command(
-    name="路線所有車站預計到達時間",
+    name="路線預計到達時間",
     description="獲得查詢路線所有車站預計到達時間",
     guild=discord.Object(id=1024304086679568475)
 )
@@ -243,16 +274,6 @@ async def get_route_eta(interaction, 路線: str, 起點站: str, 終點站: str
         view=Page(queue=data_list, page=0, dest=終點站, serv_type=服務類型, route=路線, type=1,
                   timestamp=timestamp_json,
                   funct=compose_queue))
-
-
-@app_commands.autocomplete(車站=stop_selection)
-@tree.command(
-    name="車站各路線預計到達時間",
-    description="獲得查詢車站各路線預計到達時間",
-    guild=discord.Object(id=1024304086679568475)
-)
-async def get_stop_eta(interaction, 車站: str):
-    pass
 
 
 @client.event

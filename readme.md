@@ -1,9 +1,12 @@
 Feature:
 
-- Get the stations of a bus route
-    ![img.png](img.png)
-- Get the estimated time of arrival of the next bus
-    ![img_1.png](img_1.png)
+|      Get the stations of a bus route      | Get the estimated time of arrival of the next bus |
+|------------|-------|
+|   ![img.png](img.png)     |  ![img_1.png](img_1.png)     |
+
+
+  
+   
 
 To run the bot (Assuming you are running on *NIX system (macOS / Linux / ...):
 

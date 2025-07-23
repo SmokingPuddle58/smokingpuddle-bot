@@ -1,4 +1,5 @@
 .venv
-token
+.env
 .idea
+database.db
 __pycache__

@@ -6,8 +6,13 @@ import datetime
 
 import database
 
-with open("token", "r") as token_id:
-    token = token_id.read()
+with open(".env", "r") as env_line:
+    for line in env_line.readlines():
+        if line.startswith("DISCORD_TOKEN"):
+           token = line.split("=")[1]
+        elif line.startswith("SERVER_ID"):
+            server_id = line.split("=")[1]
+
 
 intents = discord.Intents.default()
 client = discord.Client(intents=intents)
@@ -215,7 +220,7 @@ async def get_route_eta(interaction, 路線: str, 起點站: str, 終點站: str
 
 @client.event
 async def on_ready():
-    await tree.sync(guild=discord.Object(id=1024304086679568475))
+    await tree.sync(guild=discord.Object(id=server_id))
     print("Ready!")
 
 
